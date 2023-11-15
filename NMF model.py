@@ -9,6 +9,9 @@ import pandas as pd
 import numpy as np
 from sklearn.decomposition import NMF
 import matplotlib.pyplot as plt
+from sklearn.kernel_ridge import KernelRidge
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import GridSearchCV
 
 #Load the data
 df = pd.read_excel(r"C:\Users\LB945465\OneDrive - University at Albany - SUNY\State University of New York\Spyder\NMF\Queens_sorted_2000-2021.xlsx")
@@ -46,9 +49,9 @@ H = model.components_
 reconstructed_VOC = np.dot(W, H)
 
 # Convert the matrices to DataFrames
-W_df = pd.DataFrame(W)
+W_df = pd.DataFrame(W, index=VOC_sample.index)
 H_df = pd.DataFrame(H)
-reconstructed_VOC_df = pd.DataFrame(reconstructed_VOC)
+reconstructed_VOC_df = pd.DataFrame(reconstructed_VOC,  index=VOC_sample.index)
 
 # Create a Pandas Excel writer using XlsxWriter as the engine
 writer = pd.ExcelWriter('NMF_results.xlsx', engine='xlsxwriter')
@@ -63,7 +66,7 @@ writer.save()
 
 # Plot and save each component from the basis matrix W
 for i, component in enumerate(W.T):
-    plt.figure(figsize=(10, 4), dpi=150)
+    plt.figure(figsize=(15, 5), dpi=150)
     plt.plot(VOC_sample.index, component)
     plt.title(f'Component {i+1} of Basis Matrix W')
     plt.xlabel('Date')
@@ -75,7 +78,7 @@ for i, component in enumerate(W.T):
 
 # Plot and save each component from the coefficient matrix H
 for i, component in enumerate(H):
-    plt.figure(figsize=(10, 4), dpi=150)
+    plt.figure(figsize=(15, 5), dpi=150)
     plt.bar(range(len(component)), component, tick_label=VOC_sample.columns)
     plt.title(f'Component {i+1} of Coefficient Matrix H')
     plt.xlabel('Feature Index')
@@ -95,4 +98,52 @@ plt.title('Percentage Contribution of Each Component in Basis Matrix W')
 plt.savefig('Basis_Matrix_W_Pie_Chart.png')  # Save figure
 plt.show()
 
+# # Load the dataframe with columns ws_ms and wd
+# WS = pd.read_csv(r'C:\Users\LB945465\OneDrive - University at Albany - SUNY\State University of New York\NYSERDA VOC project\Data\Wind data\Requested_metdata_for_LA.GUARDIA.AIRPORT.csv', usecols=["date_LT", "ws_ms", "wd"])  
+# WS.set_index("date_LT", inplace=True)
+# WS.rename_axis("Date", inplace=True)
+# WS.index = pd.to_datetime(WS.index)
+
+# # Merge the NMF components with the wind data
+# combined_df = pd.merge(W_df, WS, left_index=True, right_index=True, how='inner')
+# combined_df.dropna(inplace=True)
+
+# # Applying NPWR (Kernel Ridge Regression as an example)
+# models = []
+# for component in W_df.columns:
+#     # Define the model
+#     kr = KernelRidge(kernel='rbf')
+#     # Fit the model
+#     kr.fit(combined_df[['ws_ms', 'wd']], combined_df[component])
+#     models.append(kr)
+
+# for i, model in enumerate(models):
+#     print(f"Model {i+1} Dual Coefficients:\n", model.dual_coef_)
+
+# # Define parameter grid
+# param_grid = {
+#     'alpha': [1e-3, 1e-2, 1e-1, 1, 10, 100],
+#     'kernel': ['linear', 'rbf', 'poly'],
+#     'gamma': np.logspace(-3, 3, 7)  # Only used for rbf and poly kernels
+# }
+
+# # Grid search with cross-validation
+# grid_search = GridSearchCV(KernelRidge(), param_grid, cv=5, scoring='neg_mean_squared_error')
+# grid_search.fit(combined_df[['ws_ms', 'wd']], combined_df[W_df.columns[0]])
+
+# # Best parameters
+# print("Best Parameters:", grid_search.best_params_)
+
+# # Retrain the model with the best parameters
+# optimized_kr = KernelRidge(alpha=0.01, kernel='poly', gamma=100.0)
+# optimized_kr.fit(combined_df[['ws_ms', 'wd']], combined_df[W_df.columns[0]])
+
+# # Make predictions with the optimized model
+# optimized_predictions = optimized_kr.predict(combined_df[['ws_ms', 'wd']])
+
+# # Evaluate the optimized model
+# mse_optimized = mean_squared_error(combined_df[W_df.columns[0]], optimized_predictions)
+# r2_optimized = r2_score(combined_df[W_df.columns[0]], optimized_predictions)
+
+# print(f"Optimized Model - MSE: {mse_optimized}, R-squared: {r2_optimized}")
 
